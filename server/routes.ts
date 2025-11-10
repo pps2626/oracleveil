@@ -44,13 +44,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Not authorized" });
       }
 
-      const token = nanoid(12);
+      const token = Math.floor(100000 + Math.random() * 900000).toString();
       await storage.createAccessToken({ token });
       
       res.json({ token });
     } catch (error) {
       console.error("Token generation error:", error);
       res.status(500).json({ error: "Failed to generate token" });
+    }
+  });
+
+  app.get("/api/admin/tokens", async (req, res) => {
+    try {
+      if (!req.session?.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      const tokens = await storage.getUnusedTokens();
+      res.json({ tokens });
+    } catch (error) {
+      console.error("Get tokens error:", error);
+      res.status(500).json({ error: "Failed to get tokens" });
     }
   });
 
@@ -90,7 +104,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid token" });
       }
 
-      // Tokens can now be used multiple times - removed single-use restriction
+      if (accessToken.used) {
+        return res.status(401).json({ error: "Token already used" });
+      }
+
+      await storage.markTokenAsUsed(token);
       
       res.json({ success: true });
     } catch (error) {
