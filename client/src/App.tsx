@@ -69,8 +69,7 @@ function Card({
   isInSpread,
   spreadPosition,
   sharedGeometry,
-  sharedBackMaterial,
-  darkMode
+  sharedBackMaterial
 }: { 
   card: CardData;
   onClick: () => void;
@@ -81,7 +80,6 @@ function Card({
   spreadPosition?: number;
   sharedGeometry: THREE.BoxGeometry;
   sharedBackMaterial: THREE.MeshStandardMaterial;
-  darkMode: boolean;
 }) {
   const meshRef = useRef<THREE.Group>(null);
   const frontRef = useRef<THREE.Mesh>(null);
@@ -94,34 +92,44 @@ function Card({
     const ctx = canvas.getContext('2d')!;
     
     const gradient = ctx.createLinearGradient(0, 0, 0, 384);
-    gradient.addColorStop(0, '#fef9c3');
-    gradient.addColorStop(0.5, '#fef08a');
-    gradient.addColorStop(1, '#fde047');
+    gradient.addColorStop(0, '#fffbeb');
+    gradient.addColorStop(0.3, '#fef3c7');
+    gradient.addColorStop(0.7, '#fde68a');
+    gradient.addColorStop(1, '#fcd34d');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 256, 384);
     
-    ctx.strokeStyle = '#b45309';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(10, 10, 236, 364);
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(12, 12, 232, 360);
     
-    ctx.fillStyle = '#92400e';
-    ctx.font = 'bold 14px serif';
+    ctx.strokeStyle = '#92400e';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(18, 18, 220, 348);
+    
+    ctx.fillStyle = '#78350f';
+    ctx.font = 'bold 16px serif';
     ctx.textAlign = 'center';
-    ctx.shadowColor = '#78350f';
-    ctx.shadowBlur = 3;
+    ctx.shadowColor = '#fbbf24';
+    ctx.shadowBlur = 2;
     
     const lines = card.name.match(/.{1,12}/g) || [card.name];
     lines.forEach((line, i) => {
-      ctx.fillText(line, 128, 175 + i * 18);
+      ctx.fillText(line, 128, 180 + i * 20);
     });
     
-    ctx.fillStyle = '#ea580c';
-    for (let i = 0; i < 8; i++) {
-      const angle = (i * Math.PI) / 4;
-      const x = 128 + Math.cos(angle) * 50;
-      const y = 100 + Math.sin(angle) * 50;
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.arc(128, 90, 35, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#fbbf24';
+    for (let i = 0; i < 12; i++) {
+      const angle = (i * Math.PI) / 6;
+      const x = 128 + Math.cos(angle) * 45;
+      const y = 90 + Math.sin(angle) * 45;
       ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
       ctx.fill();
     }
     
@@ -138,33 +146,33 @@ function Card({
     if (!meshRef.current) return;
     
     if (isRevealing) {
-      const targetY = card.position[1] + 3 + revealProgress * 2;
+      const targetY = card.position[1] + 2.5 + revealProgress * 1.5;
       meshRef.current.position.y = THREE.MathUtils.lerp(
         meshRef.current.position.y,
         targetY,
-        0.08
+        0.1
       );
       
       meshRef.current.rotation.y = revealProgress * Math.PI;
     } else if (isInSpread && spreadPosition !== undefined) {
-      const targetX = (spreadPosition - 1) * 2.5;
-      const targetY = 1;
+      const targetX = (spreadPosition - 1) * 2.2;
+      const targetY = 1.2;
       const targetZ = 2;
       
       meshRef.current.position.x = THREE.MathUtils.lerp(
         meshRef.current.position.x,
         targetX,
-        0.08
+        0.1
       );
       meshRef.current.position.y = THREE.MathUtils.lerp(
         meshRef.current.position.y,
         targetY,
-        0.08
+        0.1
       );
       meshRef.current.position.z = THREE.MathUtils.lerp(
         meshRef.current.position.z,
         targetZ,
-        0.08
+        0.1
       );
       meshRef.current.rotation.y = Math.PI;
       meshRef.current.rotation.x = 0;
@@ -174,7 +182,7 @@ function Card({
     if (frontRef.current && isInSpread) {
       const time = Date.now() * 0.001;
       const material = frontRef.current.material as THREE.MeshStandardMaterial;
-      material.emissiveIntensity = 0.4 + Math.sin(time * 2) * 0.3;
+      material.emissiveIntensity = 0.3 + Math.sin(time * 1.5) * 0.2;
     }
   });
 
@@ -193,9 +201,9 @@ function Card({
       <mesh position={[0, 0.011, 0]}>
         <boxGeometry args={[0.6, 0.001, 1]} />
         <meshStandardMaterial
-          color={darkMode ? "#c2410c" : "#ea580c"}
+          color="#b45309"
           roughness={0.3}
-          metalness={0.4}
+          metalness={0.5}
         />
       </mesh>
       
@@ -203,7 +211,7 @@ function Card({
         <boxGeometry args={[0.6, 0.001, 1]} />
         <meshStandardMaterial
           map={cardFaceTexture}
-          roughness={0.2}
+          roughness={0.1}
           metalness={0.1}
           emissive="#fbbf24"
           emissiveIntensity={isInSpread ? 0.3 : 0}
@@ -213,7 +221,7 @@ function Card({
       <mesh geometry={sharedGeometry}>
         <meshStandardMaterial
           map={sharedBackMaterial.map}
-          color={darkMode ? "#78350f" : "#92400e"}
+          color="#92400e"
           roughness={0.4}
           metalness={0.3}
           emissive={isSelected || hovered ? "#fbbf24" : "#000000"}
@@ -224,16 +232,16 @@ function Card({
   );
 }
 
-function PositionLabels({ spreadCards, darkMode }: { spreadCards: CardData[]; darkMode: boolean }) {
+function PositionLabels({ spreadCards }: { spreadCards: CardData[] }) {
   if (spreadCards.length === 0) return null;
 
   return (
     <>
       {[0, 1, 2].map((index) => (
-        <group key={index} position={[(index - 1) * 2.5, 0.02, 3.5]}>
+        <group key={index} position={[(index - 1) * 2.2, 0.02, 3.5]}>
           <Text
             fontSize={0.25}
-            color={darkMode ? "#fbbf24" : "#ea580c"}
+            color="#d97706"
             anchorX="center"
             anchorY="middle"
             font="/fonts/Inter-Bold.woff"
@@ -242,7 +250,7 @@ function PositionLabels({ spreadCards, darkMode }: { spreadCards: CardData[]; da
           </Text>
           <Text
             fontSize={0.15}
-            color={darkMode ? "#fde68a" : "#fb923c"}
+            color="#b45309"
             anchorX="center"
             anchorY="middle"
             position={[0, -0.35, 0]}
@@ -260,15 +268,13 @@ function TarotScene({
   selectedCards,
   revealingCard,
   revealProgress,
-  spreadCards,
-  darkMode
+  spreadCards
 }: {
   onCardSelect: (card: CardData) => void;
   selectedCards: CardData[];
   revealingCard: CardData | null;
   revealProgress: number;
   spreadCards: CardData[];
-  darkMode: boolean;
 }) {
   const [cards] = useState<CardData[]>(() => {
     const shuffled = cryptoShuffleArray(TAROT_CARDS);
@@ -318,22 +324,22 @@ function TarotScene({
         enabled={!revealingCard}
       />
 
-      <ambientLight intensity={darkMode ? 0.6 : 1.2} />
+      <ambientLight intensity={1.8} />
       <directionalLight
         position={[10, 15, 10]}
-        intensity={darkMode ? 1.5 : 3.0}
+        intensity={3.5}
         castShadow
         shadow-mapSize={isMobile ? [1024, 1024] : [2048, 2048]}
-        color={darkMode ? "#fffbeb" : "#fef3c7"}
+        color="#fef3c7"
       />
-      <pointLight position={[0, 8, 0]} intensity={darkMode ? 1.0 : 2.0} color="#fbbf24" />
+      <pointLight position={[0, 8, 0]} intensity={2.5} color="#fcd34d" />
       
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
         <planeGeometry args={[50, 50]} />
         <meshStandardMaterial
           map={velvetTexture}
-          color={darkMode ? "#451a03" : "#f59e0b"}
-          roughness={darkMode ? 0.8 : 0.6}
+          color="#fbbf24"
+          roughness={0.5}
           metalness={0.1}
         />
       </mesh>
@@ -354,21 +360,20 @@ function TarotScene({
             spreadPosition={isInSpread ? spreadPosition : undefined}
             sharedGeometry={sharedGeometry}
             sharedBackMaterial={sharedBackMaterial}
-            darkMode={darkMode}
           />
         );
       })}
 
-      <PositionLabels spreadCards={spreadCards} darkMode={darkMode} />
+      <PositionLabels spreadCards={spreadCards} />
 
-      <Environment preset={darkMode ? "sunset" : "dawn"} />
+      <Environment preset="dawn" />
       
-      <fog attach="fog" args={[darkMode ? "#1a1520" : "#fef3c7", 15, 45]} />
+      <fog attach="fog" args={["#fef3c7", 15, 45]} />
       
       {!isMobile && (
         <EffectComposer multisampling={4}>
           <Bloom
-            intensity={spreadCards.length > 0 ? 1.5 : 0.8}
+            intensity={spreadCards.length > 0 ? 1.8 : 1.2}
             luminanceThreshold={0.3}
             luminanceSmoothing={0.9}
             mipmapBlur
@@ -411,16 +416,16 @@ function AccessGate({ onUnlock }: { onUnlock: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-violet-950 via-fuchsia-950 to-violet-950 flex items-center justify-center">
+    <div className="fixed inset-0 bg-gradient-to-b from-amber-50 via-amber-100 to-orange-100 flex items-center justify-center">
       <div className="text-center space-y-8 p-8">
-        <h1 className="text-6xl font-bold text-amber-300 mb-4" style={{ fontFamily: "serif" }}>
+        <h1 className="text-6xl font-bold text-amber-900 mb-4" style={{ fontFamily: "serif" }}>
           ဗေဒင်၏ ဖုံးအုပ်ချက်
         </h1>
-        <p className="text-amber-100 text-xl mb-8">The Oracle's Veil</p>
+        <p className="text-amber-800 text-xl mb-8">The Oracle's Veil</p>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-amber-50 mb-3 text-lg">
+            <label className="block text-amber-900 mb-3 text-lg font-semibold">
               ဝင်ရောက်ခွင့် ကုဒ်နံပါတ်
             </label>
             <input
@@ -428,9 +433,9 @@ function AccessGate({ onUnlock }: { onUnlock: () => void }) {
               maxLength={12}
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className={`w-64 px-6 py-4 text-center text-2xl tracking-widest rounded-lg bg-violet-900 border-2 ${
-                error ? "border-red-500 shake" : "border-amber-400"
-              } text-amber-50 focus:outline-none focus:border-amber-300 transition-colors`}
+              className={`w-64 px-6 py-4 text-center text-2xl tracking-widest rounded-lg bg-white border-2 ${
+                error ? "border-red-500 shake" : "border-amber-500"
+              } text-amber-900 focus:outline-none focus:border-amber-600 transition-colors shadow-lg`}
               placeholder="Enter token"
               autoFocus
               disabled={loading}
@@ -439,14 +444,14 @@ function AccessGate({ onUnlock }: { onUnlock: () => void }) {
           
           <button
             type="submit"
-            className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-violet-950 font-bold rounded-lg transition-all transform hover:scale-105 text-lg disabled:opacity-50 shadow-lg shadow-amber-500/50"
+            className="px-8 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg transition-all transform hover:scale-105 text-lg disabled:opacity-50 shadow-lg shadow-amber-500/50"
             disabled={loading}
           >
             {loading ? "Validating..." : "ဝင်ရောက်ရန်"}
           </button>
         </form>
 
-        <p className="text-amber-100 text-sm mt-8">
+        <p className="text-amber-800 text-sm mt-8">
           သင့်ကံကြမ္မာကို ရှာဖွေပါ
         </p>
       </div>
@@ -458,50 +463,59 @@ function ReadingPanel({
   cards, 
   reading, 
   onNewReading,
-  darkMode 
+  isGenerating
 }: { 
   cards: CardData[];
   reading: string;
   onNewReading: () => void;
-  darkMode: boolean;
+  isGenerating: boolean;
 }) {
   return (
-    <div className={`fixed inset-0 ${darkMode ? 'bg-slate-900/95' : 'bg-amber-50/95'} overflow-auto z-10`}>
+    <div className="fixed inset-0 bg-gradient-to-b from-amber-50 via-orange-50 to-amber-100 overflow-auto z-10">
       <div className="max-w-4xl mx-auto p-8">
         <div className="text-center mb-8">
-          <h2 className={`text-4xl font-bold mb-4 ${darkMode ? 'text-amber-300' : 'text-amber-900'}`}>
+          <h2 className="text-4xl font-bold mb-4 text-amber-900">
             သင့်၏ တာရို ဖတ်ရှုမှု
           </h2>
           <div className="flex justify-center gap-8 mb-8">
-            <div className="text-center">
-              <p className={`text-sm mb-2 ${darkMode ? 'text-amber-200' : 'text-amber-700'}`}>အတိတ် (Past)</p>
-              <p className={`font-bold ${darkMode ? 'text-amber-100' : 'text-amber-900'}`}>{cards[0]?.name}</p>
+            <div className="text-center bg-white rounded-lg p-4 shadow-md border-2 border-amber-300">
+              <p className="text-sm mb-2 text-amber-700 font-semibold">အတိတ် (Past)</p>
+              <p className="font-bold text-amber-900">{cards[0]?.name}</p>
             </div>
-            <div className="text-center">
-              <p className={`text-sm mb-2 ${darkMode ? 'text-amber-200' : 'text-amber-700'}`}>ပစ္စုပ္ပန် (Present)</p>
-              <p className={`font-bold ${darkMode ? 'text-amber-100' : 'text-amber-900'}`}>{cards[1]?.name}</p>
+            <div className="text-center bg-white rounded-lg p-4 shadow-md border-2 border-amber-300">
+              <p className="text-sm mb-2 text-amber-700 font-semibold">ပစ္စုပ္ပန် (Present)</p>
+              <p className="font-bold text-amber-900">{cards[1]?.name}</p>
             </div>
-            <div className="text-center">
-              <p className={`text-sm mb-2 ${darkMode ? 'text-amber-200' : 'text-amber-700'}`}>အနာဂတ် (Future)</p>
-              <p className={`font-bold ${darkMode ? 'text-amber-100' : 'text-amber-900'}`}>{cards[2]?.name}</p>
+            <div className="text-center bg-white rounded-lg p-4 shadow-md border-2 border-amber-300">
+              <p className="text-sm mb-2 text-amber-700 font-semibold">အနာဂတ် (Future)</p>
+              <p className="font-bold text-amber-900">{cards[2]?.name}</p>
             </div>
           </div>
         </div>
 
-        <div className={`${darkMode ? 'bg-slate-800' : 'bg-white'} rounded-lg p-8 mb-6 shadow-2xl border-2 ${darkMode ? 'border-amber-500' : 'border-amber-400'}`}>
-          <p className={`text-lg leading-relaxed whitespace-pre-wrap ${darkMode ? 'text-amber-50' : 'text-slate-800'}`}>
-            {reading}
-          </p>
+        <div className="bg-white rounded-lg p-8 mb-6 shadow-2xl border-2 border-amber-400">
+          {isGenerating ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mb-4"></div>
+              <p className="text-lg text-amber-800">သင့်ဖတ်ရှုမှုကို ဖန်တီးနေပါသည်...</p>
+            </div>
+          ) : (
+            <p className="text-lg leading-relaxed whitespace-pre-wrap text-gray-800">
+              {reading}
+            </p>
+          )}
         </div>
 
-        <div className="flex gap-4 justify-center">
-          <button
-            onClick={onNewReading}
-            className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-lg transition-all transform hover:scale-105 shadow-lg shadow-amber-500/50"
-          >
-            အသစ် ဖတ်ရှုရန်
-          </button>
-        </div>
+        {!isGenerating && (
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={onNewReading}
+              className="px-8 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg transition-all transform hover:scale-105 shadow-lg shadow-amber-500/50"
+            >
+              အသစ် ဖတ်ရှုရန်
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -515,7 +529,7 @@ function TarotApp() {
   const [spreadCards, setSpreadCards] = useState<CardData[]>([]);
   const [reading, setReading] = useState<string>("");
   const [showReading, setShowReading] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const synthRef = useRef<Tone.Synth | null>(null);
 
   useEffect(() => {
@@ -531,7 +545,7 @@ function TarotApp() {
 
   const playSound = async () => {
     await Tone.start();
-    synthRef.current?.triggerAttackRelease("C5", "0.5");
+    synthRef.current?.triggerAttackRelease("E5", "0.3");
   };
 
   useEffect(() => {
@@ -546,11 +560,11 @@ function TarotApp() {
               setSpreadCards(prev => [...prev, revealingCard]);
               setRevealingCard(null);
               setRevealProgress(0);
-            }, 500);
+            }, 400);
             
             return 1;
           }
-          return prev + 0.01;
+          return prev + 0.015;
         });
       }, 16);
       
@@ -562,7 +576,7 @@ function TarotApp() {
     if (spreadCards.length === 3 && !showReading) {
       setTimeout(() => {
         fetchReading(spreadCards);
-      }, 100);
+      }, 500);
     }
   }, [spreadCards.length, showReading]);
 
@@ -575,6 +589,9 @@ function TarotApp() {
   };
 
   const fetchReading = async (cards: CardData[]) => {
+    setIsGenerating(true);
+    setShowReading(true);
+    
     try {
       const response = await fetch("/api/tarot-reading", {
         method: "POST",
@@ -586,11 +603,11 @@ function TarotApp() {
       
       const data = await response.json();
       setReading(data.reading || "ဖတ်ရှုမှု မရနိုင်ပါ။");
-      setShowReading(true);
     } catch (error) {
       console.error("Failed to fetch reading:", error);
       setReading("ချိတ်ဆက်မှု အမှား။ ထပ်မံကြိုးစားပါ။");
-      setShowReading(true);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -601,6 +618,7 @@ function TarotApp() {
     setShowReading(false);
     setRevealingCard(null);
     setRevealProgress(0);
+    setIsGenerating(false);
   };
 
   if (!unlocked) {
@@ -609,38 +627,29 @@ function TarotApp() {
 
   return (
     <div className="w-screen h-screen relative">
-      <div className="fixed top-4 right-4 z-20 flex gap-4">
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-lg transition-all shadow-lg shadow-amber-500/50"
-        >
-          {darkMode ? "☀️" : "🌙"}
-        </button>
-      </div>
-
       {showReading && (
         <ReadingPanel
           cards={spreadCards}
           reading={reading}
           onNewReading={handleNewReading}
-          darkMode={darkMode}
+          isGenerating={isGenerating}
         />
       )}
 
       {!showReading && (
         <>
           <div className="fixed top-4 left-4 z-20">
-            <div className={`${darkMode ? 'bg-slate-800 border-amber-500' : 'bg-white border-amber-400'} p-4 rounded-lg shadow-lg border-2`}>
-              <p className={`${darkMode ? 'text-amber-300' : 'text-amber-900'} font-bold mb-2`}>
+            <div className="bg-white p-4 rounded-lg shadow-lg border-2 border-amber-400">
+              <p className="text-amber-900 font-bold mb-2">
                 ရွေးချယ်ထားသော ကတ်များ: {selectedCards.length}/3
               </p>
-              <p className={`text-sm ${darkMode ? 'text-amber-100' : 'text-amber-700'}`}>
+              <p className="text-sm text-amber-700">
                 သင့်ကံကြမ္မာ အတွက် ကတ် သုံးချပ် ရွေးချယ်ပါ
               </p>
               {selectedCards.length > 0 && (
                 <div className="mt-3 space-y-1">
                   {selectedCards.map((card, idx) => (
-                    <p key={card.id} className={`text-xs ${darkMode ? 'text-amber-200' : 'text-amber-600'}`}>
+                    <p key={card.id} className="text-xs text-amber-600 font-medium">
                       {POSITION_LABELS_EN[idx]}: {card.name}
                     </p>
                   ))}
@@ -650,7 +659,7 @@ function TarotApp() {
           </div>
 
           <Canvas shadows gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}>
-            <color attach="background" args={[darkMode ? "#0f0a1a" : "#fef3c7"]} />
+            <color attach="background" args={["#fef3c7"]} />
             <Suspense fallback={null}>
               <TarotScene
                 onCardSelect={handleCardSelect}
@@ -658,7 +667,6 @@ function TarotApp() {
                 revealingCard={revealingCard}
                 revealProgress={revealProgress}
                 spreadCards={spreadCards}
-                darkMode={darkMode}
               />
             </Suspense>
           </Canvas>

@@ -11,3 +11,9 @@
 [x] 11. Create database and set up access_tokens table
 [x] 12. Performance optimizations for mobile devices
 [x] 13. Migration complete - workflow configured and verified working
+[x] 14. Fix missing getUnusedTokens method in storage
+[x] 15. Add GOOGLE_API_KEY for Gemini AI integration
+[x] 16. Rebuild tarot card reading with lighter golden/amber theme
+[x] 17. Improve card design with brighter gradient colors
+[x] 18. Add loading state for reading generation
+[x] 19. Enhance UI with better contrast and readability

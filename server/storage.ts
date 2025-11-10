@@ -15,6 +15,7 @@ export interface IStorage {
   createAccessToken(token: InsertAccessToken): Promise<AccessToken>;
   getAccessToken(token: string): Promise<AccessToken | undefined>;
   markTokenAsUsed(token: string): Promise<void>;
+  getUnusedTokens(): Promise<AccessToken[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -45,6 +46,11 @@ export class DatabaseStorage implements IStorage {
 
   async markTokenAsUsed(token: string): Promise<void> {
     await db.update(accessTokens).set({ used: true }).where(eq(accessTokens.token, token));
+  }
+
+  async getUnusedTokens(): Promise<AccessToken[]> {
+    const result = await db.select().from(accessTokens).where(eq(accessTokens.used, false));
+    return result;
   }
 }
 
