@@ -1,8 +1,10 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { eq } from "drizzle-orm";
-import { Pool } from "@neondatabase/serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 import { users, accessTokens, type User, type InsertUser, type AccessToken, type InsertAccessToken } from "@shared/schema";
 
+neonConfig.webSocketConstructor = ws;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle(pool);
 
