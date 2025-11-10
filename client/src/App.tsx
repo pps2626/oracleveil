@@ -22,6 +22,8 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as Tone from "tone";
 import "@fontsource/inter";
 import { BlendFunction } from "postprocessing";
+import { Route, Switch } from "wouter";
+import { AdminPanel } from "./pages/AdminPanel";
 
 const TAROT_CARDS = [
   "The Fool", "The Magician", "The High Priestess", "The Empress", "The Emperor",
@@ -411,14 +413,31 @@ function TarotScene({
 function AccessGate({ onUnlock }: { onUnlock: () => void }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code === "333888") {
-      onUnlock();
-    } else {
+    setError(false);
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: code }),
+      });
+
+      if (response.ok) {
+        onUnlock();
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 1000);
+      }
+    } catch (err) {
       setError(true);
       setTimeout(() => setError(false), 1000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -437,24 +456,24 @@ function AccessGate({ onUnlock }: { onUnlock: () => void }) {
             </label>
             <input
               type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
+              maxLength={12}
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => setCode(e.target.value)}
               className={`w-64 px-6 py-4 text-center text-2xl tracking-widest rounded-lg bg-slate-800 border-2 ${
                 error ? "border-red-500 shake" : "border-amber-500"
               } text-amber-100 focus:outline-none focus:border-amber-400 transition-colors`}
-              placeholder="••••••"
+              placeholder="Enter token"
               autoFocus
+              disabled={loading}
             />
           </div>
           
           <button
             type="submit"
-            className="px-8 py-3 bg-amber-600 hover:bg-amber-500 text-slate-900 font-bold rounded-lg transition-all transform hover:scale-105 text-lg"
+            className="px-8 py-3 bg-amber-600 hover:bg-amber-500 text-slate-900 font-bold rounded-lg transition-all transform hover:scale-105 text-lg disabled:opacity-50"
+            disabled={loading}
           >
-            ဝင်ရောက်ရန်
+            {loading ? "Validating..." : "ဝင်ရောက်ရန်"}
           </button>
         </form>
 
@@ -519,7 +538,7 @@ function ReadingPanel({
   );
 }
 
-function App() {
+function TarotApp() {
   const [unlocked, setUnlocked] = useState(false);
   const [selectedCards, setSelectedCards] = useState<CardData[]>([]);
   const [revealingCard, setRevealingCard] = useState<CardData | null>(null);
@@ -664,6 +683,15 @@ function App() {
         </>
       )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Switch>
+      <Route path="/admin" component={AdminPanel} />
+      <Route path="/" component={TarotApp} />
+    </Switch>
   );
 }
 
