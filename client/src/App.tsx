@@ -5,23 +5,17 @@ import {
   Environment, 
   PerspectiveCamera,
   useTexture,
-  Sparkles,
-  Lightformer
+  Sparkles
 } from "@react-three/drei";
 import { 
   EffectComposer, 
   Bloom, 
-  ChromaticAberration, 
-  DepthOfField,
-  Vignette,
-  SSAO,
-  GodRays
+  Vignette
 } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as Tone from "tone";
 import "@fontsource/inter";
-import { BlendFunction } from "postprocessing";
 import { Route, Switch } from "wouter";
 import { AdminPanel } from "./pages/AdminPanel";
 
@@ -84,33 +78,46 @@ function Card({
     const ctx = canvas.getContext('2d')!;
     
     const gradient = ctx.createLinearGradient(0, 0, 0, 768);
-    gradient.addColorStop(0, '#1a0a2e');
-    gradient.addColorStop(1, '#0a0515');
+    gradient.addColorStop(0, '#fef3c7');
+    gradient.addColorStop(0.5, '#fde68a');
+    gradient.addColorStop(1, '#fcd34d');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 512, 768);
     
-    ctx.strokeStyle = '#fbbf24';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([10, 5]);
+    ctx.strokeStyle = '#92400e';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([]);
     ctx.strokeRect(20, 20, 472, 728);
     
-    ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 24px serif';
+    ctx.fillStyle = '#78350f';
+    ctx.font = 'bold 26px serif';
     ctx.textAlign = 'center';
-    ctx.shadowColor = '#fbbf24';
-    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#78350f';
+    ctx.shadowBlur = 5;
     
     const lines = card.name.match(/.{1,15}/g) || [card.name];
     lines.forEach((line, i) => {
       ctx.fillText(line, 256, 350 + i * 30);
     });
     
+    ctx.fillStyle = '#d97706';
     for (let i = 0; i < 8; i++) {
       const angle = (i * Math.PI) / 4;
       const x = 256 + Math.cos(angle) * 100;
       const y = 200 + Math.sin(angle) * 100;
       ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Add inner circle pattern
+    ctx.fillStyle = '#92400e';
+    for (let i = 0; i < 8; i++) {
+      const angle = (i * Math.PI) / 4;
+      const x = 256 + Math.cos(angle) * 60;
+      const y = 200 + Math.sin(angle) * 60;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
       ctx.fill();
     }
     
@@ -182,9 +189,9 @@ function Card({
       <mesh position={[0, 0.011, 0]}>
         <boxGeometry args={[0.6, 0.001, 1]} />
         <meshStandardMaterial
-          color="#0a0515"
-          roughness={0.2}
-          metalness={0.8}
+          color="#c2410c"
+          roughness={0.3}
+          metalness={0.4}
         />
       </mesh>
       
@@ -192,10 +199,10 @@ function Card({
         <boxGeometry args={[0.6, 0.001, 1]} />
         <meshStandardMaterial
           map={cardFaceTexture}
-          roughness={0.2}
-          metalness={0.5}
+          roughness={0.3}
+          metalness={0.2}
           emissive="#fbbf24"
-          emissiveIntensity={isInSpread ? 0.3 : 0}
+          emissiveIntensity={isInSpread ? 0.2 : 0}
           normalScale={new THREE.Vector2(1, 1)}
         />
       </mesh>
@@ -204,10 +211,10 @@ function Card({
         <boxGeometry args={[0.6, 0.02, 1]} />
         <meshStandardMaterial
           map={woodTexture}
-          roughness={0.3}
-          metalness={0.6}
+          roughness={0.4}
+          metalness={0.3}
           emissive={isSelected || hovered ? "#fbbf24" : "#000000"}
-          emissiveIntensity={isSelected ? 0.5 : hovered ? 0.3 : 0}
+          emissiveIntensity={isSelected ? 0.4 : hovered ? 0.2 : 0}
           normalScale={new THREE.Vector2(2, 2)}
         />
       </mesh>
@@ -246,17 +253,6 @@ function CameraRig({ revealingCard, revealProgress }: { revealingCard: CardData 
   return null;
 }
 
-function GodRayLight() {
-  const lightRef = useRef<THREE.Mesh>(null!);
-  
-  return (
-    <mesh ref={lightRef} position={[0, 15, 0]}>
-      <sphereGeometry args={[0.5, 32, 32]} />
-      <meshBasicMaterial color="#fbbf24" />
-    </mesh>
-  );
-}
-
 function TarotScene({ 
   onCardSelect,
   selectedCards,
@@ -292,8 +288,6 @@ function TarotScene({
   const velvetTexture = useTexture("/textures/wood.jpg");
   velvetTexture.wrapS = velvetTexture.wrapT = THREE.RepeatWrapping;
   velvetTexture.repeat.set(8, 8);
-  
-  const [godRayLight, setGodRayLight] = useState<THREE.Mesh | null>(null);
 
   return (
     <>
@@ -308,45 +302,35 @@ function TarotScene({
         enabled={!revealingCard}
       />
 
-      <ambientLight intensity={0.3} />
+      <ambientLight intensity={darkMode ? 0.4 : 0.8} />
       <directionalLight
         position={[10, 15, 10]}
-        intensity={1.5}
+        intensity={darkMode ? 1.2 : 2.5}
         castShadow
         shadow-mapSize={[2048, 2048]}
+        color={darkMode ? "#ffffff" : "#fffbeb"}
       />
-      <pointLight position={[0, 5, 0]} intensity={1} color="#fbbf24" />
-      <spotLight
-        position={[0, 10, 0]}
-        angle={0.3}
-        penumbra={1}
-        intensity={0.5}
-        color="#fbbf24"
-        castShadow
-      />
-      
-      <mesh ref={setGodRayLight} position={[0, 15, 0]}>
-        <sphereGeometry args={[0.5, 32, 32]} />
-        <meshBasicMaterial color="#fbbf24" />
-      </mesh>
+      <pointLight position={[0, 8, 0]} intensity={darkMode ? 0.8 : 1.5} color="#fbbf24" />
+      <pointLight position={[5, 5, 5]} intensity={darkMode ? 0.5 : 1.0} color="#fef3c7" />
+      <pointLight position={[-5, 5, -5]} intensity={darkMode ? 0.5 : 1.0} color="#fef3c7" />
       
       <Sparkles
-        count={100}
+        count={darkMode ? 80 : 150}
         scale={[20, 10, 20]}
-        size={2}
-        speed={0.3}
-        color="#fbbf24"
-        opacity={0.6}
+        size={darkMode ? 1.5 : 3}
+        speed={0.4}
+        color={darkMode ? "#fbbf24" : "#fde68a"}
+        opacity={darkMode ? 0.5 : 0.8}
       />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
         <planeGeometry args={[50, 50]} />
         <meshStandardMaterial
           map={velvetTexture}
-          color="#1a1a2e"
-          roughness={0.95}
-          metalness={0.05}
-          envMapIntensity={0.3}
+          color={darkMode ? "#3b2814" : "#d97706"}
+          roughness={darkMode ? 0.9 : 0.7}
+          metalness={0.1}
+          envMapIntensity={darkMode ? 0.3 : 0.6}
         />
       </mesh>
 
@@ -368,43 +352,18 @@ function TarotScene({
         );
       })}
 
-      <Environment preset="night" />
+      <Environment preset={darkMode ? "sunset" : "dawn"} />
       
-      <fog attach="fog" args={["#0a0a1a", 10, 40]} />
+      <fog attach="fog" args={[darkMode ? "#1a1520" : "#fef3c7", 15, 45]} />
       
       <EffectComposer multisampling={8}>
-        <SSAO
-          samples={31}
-          radius={5}
-          intensity={40}
-          luminanceInfluence={0.6}
-        />
-        {godRayLight && (
-          <GodRays
-            sun={godRayLight}
-            samples={60}
-            density={0.96}
-            decay={0.92}
-            weight={0.3}
-            exposure={0.2}
-            clampMax={1}
-            blur={true}
-          />
-        )}
         <Bloom
-          intensity={spreadCards.length > 0 ? 2.0 : 0.8}
-          luminanceThreshold={0.2}
-          luminanceSmoothing={0.9}
+          intensity={spreadCards.length > 0 ? 1.2 : 0.5}
+          luminanceThreshold={0.3}
+          luminanceSmoothing={0.8}
           mipmapBlur
         />
-        {revealingCard && (
-          <DepthOfField
-            focusDistance={0.01}
-            focalLength={0.05}
-            bokehScale={revealProgress * 3}
-          />
-        )}
-        <Vignette eskil={false} offset={0.1} darkness={darkMode ? 0.6 : 0.4} />
+        <Vignette eskil={false} offset={0.15} darkness={darkMode ? 0.4 : 0.2} />
       </EffectComposer>
     </>
   );
@@ -574,13 +533,16 @@ function TarotApp() {
             playSound();
             
             setTimeout(() => {
-              setSpreadCards(prev => [...prev, revealingCard]);
+              setSpreadCards(prev => {
+                const updatedSpreadCards = [...prev, revealingCard];
+                // After all 3 cards are revealed and added to spread, fetch the reading
+                if (selectedCards.length === 3 && updatedSpreadCards.length === 3) {
+                  setTimeout(() => fetchReading(), 100);
+                }
+                return updatedSpreadCards;
+              });
               setRevealingCard(null);
               setRevealProgress(0);
-              
-              if (selectedCards.length === 3 && spreadCards.length === 2) {
-                fetchReading();
-              }
             }, 500);
             
             return 1;
@@ -668,7 +630,7 @@ function TarotApp() {
           </div>
 
           <Canvas shadows gl={{ antialias: true, alpha: false }}>
-            <color attach="background" args={[darkMode ? "#0a0a1a" : "#f8f4e8"]} />
+            <color attach="background" args={[darkMode ? "#0f0a1a" : "#fef3c7"]} />
             <Suspense fallback={null}>
               <TarotScene
                 onCardSelect={handleCardSelect}

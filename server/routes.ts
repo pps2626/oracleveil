@@ -90,11 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid token" });
       }
 
-      if (accessToken.used) {
-        return res.status(401).json({ error: "Token already used" });
-      }
-
-      await storage.markTokenAsUsed(token);
+      // Tokens can now be used multiple times - removed single-use restriction
       
       res.json({ success: true });
     } catch (error) {
