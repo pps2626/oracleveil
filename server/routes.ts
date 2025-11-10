@@ -54,6 +54,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/generate-tokens", async (req, res) => {
+    try {
+      if (!req.session?.isAdmin) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      const { count } = req.body;
+      const numTokens = Math.min(50, Math.max(1, parseInt(count) || 1));
+      const tokens: string[] = [];
+
+      for (let i = 0; i < numTokens; i++) {
+        const token = Math.floor(100000 + Math.random() * 900000).toString();
+        await storage.createAccessToken({ token });
+        tokens.push(token);
+      }
+      
+      res.json({ tokens });
+    } catch (error) {
+      console.error("Token generation error:", error);
+      res.status(500).json({ error: "Failed to generate tokens" });
+    }
+  });
+
   app.get("/api/admin/tokens", async (req, res) => {
     try {
       if (!req.session?.isAdmin) {

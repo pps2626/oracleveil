@@ -20,3 +20,8 @@
 [x] 20. Create PostgreSQL database
 [x] 21. Push database schema to create access_tokens and users tables
 [x] 22. Fixed "Failed to generate token" error
+[x] 23. Add bulk token generation (1-50 tokens at once)
+[x] 24. Display all unused/alive tokens in admin panel
+[x] 25. Add copy functionality for individual and all tokens
+[x] 26. Add refresh button to reload token list
+[x] 27. Update admin panel with lighter golden/amber theme
