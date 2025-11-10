@@ -210,9 +210,9 @@ function Card({
         />
       </mesh>
       
-      <mesh geometry={sharedGeometry} material={sharedBackMaterial}>
+      <mesh geometry={sharedGeometry}>
         <meshStandardMaterial
-          attach="material"
+          map={sharedBackMaterial.map}
           color={darkMode ? "#78350f" : "#92400e"}
           roughness={0.4}
           metalness={0.3}
@@ -543,13 +543,7 @@ function TarotApp() {
             playSound();
             
             setTimeout(() => {
-              setSpreadCards(prev => {
-                const updatedSpreadCards = [...prev, revealingCard];
-                if (selectedCards.length === 3 && updatedSpreadCards.length === 3) {
-                  setTimeout(() => fetchReading(), 100);
-                }
-                return updatedSpreadCards;
-              });
+              setSpreadCards(prev => [...prev, revealingCard]);
               setRevealingCard(null);
               setRevealProgress(0);
             }, 500);
@@ -562,23 +556,31 @@ function TarotApp() {
       
       return () => clearInterval(interval);
     }
-  }, [revealingCard, selectedCards.length]);
+  }, [revealingCard]);
+
+  useEffect(() => {
+    if (spreadCards.length === 3 && !showReading) {
+      setTimeout(() => {
+        fetchReading(spreadCards);
+      }, 100);
+    }
+  }, [spreadCards.length, showReading]);
 
   const handleCardSelect = (card: CardData) => {
-    if (selectedCards.length < 3) {
+    if (selectedCards.length < 3 && !selectedCards.some(sc => sc.id === card.id) && !revealingCard) {
       const newSelected = [...selectedCards, card];
       setSelectedCards(newSelected);
       setRevealingCard(card);
     }
   };
 
-  const fetchReading = async () => {
+  const fetchReading = async (cards: CardData[]) => {
     try {
       const response = await fetch("/api/tarot-reading", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cards: spreadCards.map(c => c.name).concat(selectedCards[selectedCards.length - 1].name)
+          cards: cards.map(c => c.name)
         })
       });
       
