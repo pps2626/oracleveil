@@ -17,3 +17,6 @@
 [x] 17. Improve card design with brighter gradient colors
 [x] 18. Add loading state for reading generation
 [x] 19. Enhance UI with better contrast and readability
+[x] 20. Create PostgreSQL database
+[x] 21. Push database schema to create access_tokens and users tables
+[x] 22. Fixed "Failed to generate token" error
