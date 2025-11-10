@@ -2,18 +2,17 @@ import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect, useState, useRef, useMemo } from "react";
 import { 
   OrbitControls, 
-  Environment, 
   PerspectiveCamera,
   useTexture,
-  Sparkles
+  Environment,
+  Text
 } from "@react-three/drei";
 import { 
   EffectComposer, 
-  Bloom, 
-  Vignette
+  Bloom
 } from "@react-three/postprocessing";
 import * as THREE from "three";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import * as Tone from "tone";
 import "@fontsource/inter";
 import { Route, Switch } from "wouter";
@@ -39,12 +38,27 @@ const TAROT_CARDS = [
   "Page of Wands", "Knight of Wands", "Queen of Wands", "King of Wands"
 ];
 
+const cryptoShuffleArray = <T,>(array: T[]): T[] => {
+  const newArray = [...array];
+  const randomValues = new Uint32Array(newArray.length);
+  crypto.getRandomValues(randomValues);
+  
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = randomValues[i] % (i + 1);
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+};
+
 interface CardData {
   id: number;
   name: string;
   position: [number, number, number];
   rotation: [number, number, number];
 }
+
+const POSITION_LABELS = ["အတိတ်", "ပစ္စုပ္ပန်", "အနာဂတ်"];
+const POSITION_LABELS_EN = ["Past", "Present", "Future"];
 
 function Card({ 
   card, 
@@ -53,7 +67,10 @@ function Card({
   isRevealing, 
   revealProgress,
   isInSpread,
-  spreadPosition
+  spreadPosition,
+  sharedGeometry,
+  sharedBackMaterial,
+  darkMode
 }: { 
   card: CardData;
   onClick: () => void;
@@ -62,60 +79,47 @@ function Card({
   revealProgress: number;
   isInSpread: boolean;
   spreadPosition?: number;
+  sharedGeometry: THREE.BoxGeometry;
+  sharedBackMaterial: THREE.MeshStandardMaterial;
+  darkMode: boolean;
 }) {
   const meshRef = useRef<THREE.Group>(null);
   const frontRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
-  
-  const woodTexture = useTexture("/textures/wood.jpg");
-  woodTexture.wrapS = woodTexture.wrapT = THREE.RepeatWrapping;
-  woodTexture.repeat.set(0.5, 0.7);
 
   const cardFaceTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 768;
+    canvas.width = 256;
+    canvas.height = 384;
     const ctx = canvas.getContext('2d')!;
     
-    const gradient = ctx.createLinearGradient(0, 0, 0, 768);
-    gradient.addColorStop(0, '#fef3c7');
-    gradient.addColorStop(0.5, '#fde68a');
-    gradient.addColorStop(1, '#fcd34d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 384);
+    gradient.addColorStop(0, '#fef9c3');
+    gradient.addColorStop(0.5, '#fef08a');
+    gradient.addColorStop(1, '#fde047');
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 512, 768);
+    ctx.fillRect(0, 0, 256, 384);
     
-    ctx.strokeStyle = '#92400e';
-    ctx.lineWidth = 4;
-    ctx.setLineDash([]);
-    ctx.strokeRect(20, 20, 472, 728);
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(10, 10, 236, 364);
     
-    ctx.fillStyle = '#78350f';
-    ctx.font = 'bold 26px serif';
+    ctx.fillStyle = '#92400e';
+    ctx.font = 'bold 14px serif';
     ctx.textAlign = 'center';
     ctx.shadowColor = '#78350f';
-    ctx.shadowBlur = 5;
+    ctx.shadowBlur = 3;
     
-    const lines = card.name.match(/.{1,15}/g) || [card.name];
+    const lines = card.name.match(/.{1,12}/g) || [card.name];
     lines.forEach((line, i) => {
-      ctx.fillText(line, 256, 350 + i * 30);
+      ctx.fillText(line, 128, 175 + i * 18);
     });
     
-    ctx.fillStyle = '#d97706';
+    ctx.fillStyle = '#ea580c';
     for (let i = 0; i < 8; i++) {
       const angle = (i * Math.PI) / 4;
-      const x = 256 + Math.cos(angle) * 100;
-      const y = 200 + Math.sin(angle) * 100;
-      ctx.beginPath();
-      ctx.arc(x, y, 6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    
-    // Add inner circle pattern
-    ctx.fillStyle = '#92400e';
-    for (let i = 0; i < 8; i++) {
-      const angle = (i * Math.PI) / 4;
-      const x = 256 + Math.cos(angle) * 60;
-      const y = 200 + Math.sin(angle) * 60;
+      const x = 128 + Math.cos(angle) * 50;
+      const y = 100 + Math.sin(angle) * 50;
       ctx.beginPath();
       ctx.arc(x, y, 4, 0, Math.PI * 2);
       ctx.fill();
@@ -127,8 +131,8 @@ function Card({
   }, [card.name]);
 
   useEffect(() => {
-    document.body.style.cursor = hovered ? "pointer" : "auto";
-  }, [hovered]);
+    document.body.style.cursor = hovered && !isInSpread ? "pointer" : "auto";
+  }, [hovered, isInSpread]);
 
   useFrame(() => {
     if (!meshRef.current) return;
@@ -138,29 +142,29 @@ function Card({
       meshRef.current.position.y = THREE.MathUtils.lerp(
         meshRef.current.position.y,
         targetY,
-        0.05
+        0.08
       );
       
       meshRef.current.rotation.y = revealProgress * Math.PI;
     } else if (isInSpread && spreadPosition !== undefined) {
       const targetX = (spreadPosition - 1) * 2.5;
       const targetY = 1;
-      const targetZ = 0;
+      const targetZ = 2;
       
       meshRef.current.position.x = THREE.MathUtils.lerp(
         meshRef.current.position.x,
         targetX,
-        0.05
+        0.08
       );
       meshRef.current.position.y = THREE.MathUtils.lerp(
         meshRef.current.position.y,
         targetY,
-        0.05
+        0.08
       );
       meshRef.current.position.z = THREE.MathUtils.lerp(
         meshRef.current.position.z,
         targetZ,
-        0.05
+        0.08
       );
       meshRef.current.rotation.y = Math.PI;
       meshRef.current.rotation.x = 0;
@@ -170,7 +174,7 @@ function Card({
     if (frontRef.current && isInSpread) {
       const time = Date.now() * 0.001;
       const material = frontRef.current.material as THREE.MeshStandardMaterial;
-      material.emissiveIntensity = 0.3 + Math.sin(time * 2) * 0.2;
+      material.emissiveIntensity = 0.4 + Math.sin(time * 2) * 0.3;
     }
   });
 
@@ -181,15 +185,15 @@ function Card({
       rotation={card.rotation}
       onClick={(e) => {
         e.stopPropagation();
-        onClick();
+        if (!isInSpread) onClick();
       }}
-      onPointerOver={() => setHovered(true)}
+      onPointerOver={() => !isInSpread && setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
       <mesh position={[0, 0.011, 0]}>
         <boxGeometry args={[0.6, 0.001, 1]} />
         <meshStandardMaterial
-          color="#c2410c"
+          color={darkMode ? "#c2410c" : "#ea580c"}
           roughness={0.3}
           metalness={0.4}
         />
@@ -199,58 +203,56 @@ function Card({
         <boxGeometry args={[0.6, 0.001, 1]} />
         <meshStandardMaterial
           map={cardFaceTexture}
-          roughness={0.3}
-          metalness={0.2}
+          roughness={0.2}
+          metalness={0.1}
           emissive="#fbbf24"
-          emissiveIntensity={isInSpread ? 0.2 : 0}
-          normalScale={new THREE.Vector2(1, 1)}
+          emissiveIntensity={isInSpread ? 0.3 : 0}
         />
       </mesh>
       
-      <mesh>
-        <boxGeometry args={[0.6, 0.02, 1]} />
+      <mesh geometry={sharedGeometry} material={sharedBackMaterial}>
         <meshStandardMaterial
-          map={woodTexture}
+          attach="material"
+          color={darkMode ? "#78350f" : "#92400e"}
           roughness={0.4}
           metalness={0.3}
           emissive={isSelected || hovered ? "#fbbf24" : "#000000"}
-          emissiveIntensity={isSelected ? 0.4 : hovered ? 0.2 : 0}
-          normalScale={new THREE.Vector2(2, 2)}
+          emissiveIntensity={isSelected ? 0.5 : hovered ? 0.3 : 0}
         />
       </mesh>
     </group>
   );
 }
 
-function CameraRig({ revealingCard, revealProgress }: { revealingCard: CardData | null; revealProgress: number }) {
-  const { camera } = useThree();
-  
-  useFrame(() => {
-    if (revealingCard) {
-      const cardX = revealingCard.position[0];
-      const cardZ = revealingCard.position[2];
-      const cardY = revealingCard.position[1] + 3 + revealProgress * 2;
-      
-      const distance = THREE.MathUtils.lerp(12, 6, revealProgress);
-      const angle = Math.atan2(cardX, cardZ);
-      
-      const targetX = cardX + Math.sin(angle) * distance * 0.3;
-      const targetY = THREE.MathUtils.lerp(8, cardY + 2, revealProgress);
-      const targetZ = cardZ + Math.cos(angle) * distance * 0.3;
-      
-      camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetX, 0.05);
-      camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 0.05);
-      camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ, 0.05);
-      camera.lookAt(cardX, cardY, cardZ);
-    } else {
-      camera.position.x = THREE.MathUtils.lerp(camera.position.x, 0, 0.05);
-      camera.position.z = THREE.MathUtils.lerp(camera.position.z, 12, 0.05);
-      camera.position.y = THREE.MathUtils.lerp(camera.position.y, 8, 0.05);
-      camera.lookAt(0, 0, 0);
-    }
-  });
-  
-  return null;
+function PositionLabels({ spreadCards, darkMode }: { spreadCards: CardData[]; darkMode: boolean }) {
+  if (spreadCards.length === 0) return null;
+
+  return (
+    <>
+      {[0, 1, 2].map((index) => (
+        <group key={index} position={[(index - 1) * 2.5, 0.02, 3.5]}>
+          <Text
+            fontSize={0.25}
+            color={darkMode ? "#fbbf24" : "#ea580c"}
+            anchorX="center"
+            anchorY="middle"
+            font="/fonts/Inter-Bold.woff"
+          >
+            {POSITION_LABELS[index]}
+          </Text>
+          <Text
+            fontSize={0.15}
+            color={darkMode ? "#fde68a" : "#fb923c"}
+            anchorX="center"
+            anchorY="middle"
+            position={[0, -0.35, 0]}
+          >
+            {POSITION_LABELS_EN[index]}
+          </Text>
+        </group>
+      ))}
+    </>
+  );
 }
 
 function TarotScene({ 
@@ -269,12 +271,13 @@ function TarotScene({
   darkMode: boolean;
 }) {
   const [cards] = useState<CardData[]>(() => {
-    return TAROT_CARDS.map((name, index) => ({
+    const shuffled = cryptoShuffleArray(TAROT_CARDS);
+    return shuffled.map((name, index) => ({
       id: index,
       name,
       position: [
         (Math.random() - 0.5) * 15,
-        Math.random() * 0.2,
+        Math.random() * 0.15,
         (Math.random() - 0.5) * 15
       ] as [number, number, number],
       rotation: [
@@ -285,13 +288,26 @@ function TarotScene({
     }));
   });
 
+  const sharedGeometry = useMemo(() => new THREE.BoxGeometry(0.6, 0.02, 1), []);
+  const woodTexture = useTexture("/textures/wood.jpg");
+  const sharedBackMaterial = useMemo(() => {
+    woodTexture.wrapS = woodTexture.wrapT = THREE.RepeatWrapping;
+    woodTexture.repeat.set(0.5, 0.7);
+    return new THREE.MeshStandardMaterial({
+      map: woodTexture,
+      roughness: 0.4,
+      metalness: 0.3,
+    });
+  }, [woodTexture]);
+
   const velvetTexture = useTexture("/textures/wood.jpg");
   velvetTexture.wrapS = velvetTexture.wrapT = THREE.RepeatWrapping;
   velvetTexture.repeat.set(8, 8);
 
+  const isMobile = useMemo(() => window.innerWidth < 768, []);
+
   return (
     <>
-      <CameraRig revealingCard={revealingCard} revealProgress={revealProgress} />
       <PerspectiveCamera makeDefault position={[0, 8, 12]} fov={50} />
       <OrbitControls
         enablePan={false}
@@ -302,35 +318,23 @@ function TarotScene({
         enabled={!revealingCard}
       />
 
-      <ambientLight intensity={darkMode ? 0.4 : 0.8} />
+      <ambientLight intensity={darkMode ? 0.6 : 1.2} />
       <directionalLight
         position={[10, 15, 10]}
-        intensity={darkMode ? 1.2 : 2.5}
+        intensity={darkMode ? 1.5 : 3.0}
         castShadow
-        shadow-mapSize={[2048, 2048]}
-        color={darkMode ? "#ffffff" : "#fffbeb"}
+        shadow-mapSize={isMobile ? [1024, 1024] : [2048, 2048]}
+        color={darkMode ? "#fffbeb" : "#fef3c7"}
       />
-      <pointLight position={[0, 8, 0]} intensity={darkMode ? 0.8 : 1.5} color="#fbbf24" />
-      <pointLight position={[5, 5, 5]} intensity={darkMode ? 0.5 : 1.0} color="#fef3c7" />
-      <pointLight position={[-5, 5, -5]} intensity={darkMode ? 0.5 : 1.0} color="#fef3c7" />
+      <pointLight position={[0, 8, 0]} intensity={darkMode ? 1.0 : 2.0} color="#fbbf24" />
       
-      <Sparkles
-        count={darkMode ? 80 : 150}
-        scale={[20, 10, 20]}
-        size={darkMode ? 1.5 : 3}
-        speed={0.4}
-        color={darkMode ? "#fbbf24" : "#fde68a"}
-        opacity={darkMode ? 0.5 : 0.8}
-      />
-
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
         <planeGeometry args={[50, 50]} />
         <meshStandardMaterial
           map={velvetTexture}
-          color={darkMode ? "#3b2814" : "#d97706"}
-          roughness={darkMode ? 0.9 : 0.7}
+          color={darkMode ? "#451a03" : "#f59e0b"}
+          roughness={darkMode ? 0.8 : 0.6}
           metalness={0.1}
-          envMapIntensity={darkMode ? 0.3 : 0.6}
         />
       </mesh>
 
@@ -348,23 +352,29 @@ function TarotScene({
             revealProgress={revealProgress}
             isInSpread={isInSpread}
             spreadPosition={isInSpread ? spreadPosition : undefined}
+            sharedGeometry={sharedGeometry}
+            sharedBackMaterial={sharedBackMaterial}
+            darkMode={darkMode}
           />
         );
       })}
+
+      <PositionLabels spreadCards={spreadCards} darkMode={darkMode} />
 
       <Environment preset={darkMode ? "sunset" : "dawn"} />
       
       <fog attach="fog" args={[darkMode ? "#1a1520" : "#fef3c7", 15, 45]} />
       
-      <EffectComposer multisampling={8}>
-        <Bloom
-          intensity={spreadCards.length > 0 ? 1.2 : 0.5}
-          luminanceThreshold={0.3}
-          luminanceSmoothing={0.8}
-          mipmapBlur
-        />
-        <Vignette eskil={false} offset={0.15} darkness={darkMode ? 0.4 : 0.2} />
-      </EffectComposer>
+      {!isMobile && (
+        <EffectComposer multisampling={4}>
+          <Bloom
+            intensity={spreadCards.length > 0 ? 1.5 : 0.8}
+            luminanceThreshold={0.3}
+            luminanceSmoothing={0.9}
+            mipmapBlur
+          />
+        </EffectComposer>
+      )}
     </>
   );
 }
@@ -401,16 +411,16 @@ function AccessGate({ onUnlock }: { onUnlock: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+    <div className="fixed inset-0 bg-gradient-to-b from-violet-950 via-fuchsia-950 to-violet-950 flex items-center justify-center">
       <div className="text-center space-y-8 p-8">
-        <h1 className="text-6xl font-bold text-amber-400 mb-4" style={{ fontFamily: "serif" }}>
+        <h1 className="text-6xl font-bold text-amber-300 mb-4" style={{ fontFamily: "serif" }}>
           ဗေဒင်၏ ဖုံးအုပ်ချက်
         </h1>
-        <p className="text-amber-200 text-xl mb-8">The Oracle's Veil</p>
+        <p className="text-amber-100 text-xl mb-8">The Oracle's Veil</p>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-amber-100 mb-3 text-lg">
+            <label className="block text-amber-50 mb-3 text-lg">
               ဝင်ရောက်ခွင့် ကုဒ်နံပါတ်
             </label>
             <input
@@ -418,9 +428,9 @@ function AccessGate({ onUnlock }: { onUnlock: () => void }) {
               maxLength={12}
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className={`w-64 px-6 py-4 text-center text-2xl tracking-widest rounded-lg bg-slate-800 border-2 ${
-                error ? "border-red-500 shake" : "border-amber-500"
-              } text-amber-100 focus:outline-none focus:border-amber-400 transition-colors`}
+              className={`w-64 px-6 py-4 text-center text-2xl tracking-widest rounded-lg bg-violet-900 border-2 ${
+                error ? "border-red-500 shake" : "border-amber-400"
+              } text-amber-50 focus:outline-none focus:border-amber-300 transition-colors`}
               placeholder="Enter token"
               autoFocus
               disabled={loading}
@@ -429,14 +439,14 @@ function AccessGate({ onUnlock }: { onUnlock: () => void }) {
           
           <button
             type="submit"
-            className="px-8 py-3 bg-amber-600 hover:bg-amber-500 text-slate-900 font-bold rounded-lg transition-all transform hover:scale-105 text-lg disabled:opacity-50"
+            className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-violet-950 font-bold rounded-lg transition-all transform hover:scale-105 text-lg disabled:opacity-50 shadow-lg shadow-amber-500/50"
             disabled={loading}
           >
             {loading ? "Validating..." : "ဝင်ရောက်ရန်"}
           </button>
         </form>
 
-        <p className="text-amber-200 text-sm mt-8">
+        <p className="text-amber-100 text-sm mt-8">
           သင့်ကံကြမ္မာကို ရှာဖွေပါ
         </p>
       </div>
@@ -459,26 +469,26 @@ function ReadingPanel({
     <div className={`fixed inset-0 ${darkMode ? 'bg-slate-900/95' : 'bg-amber-50/95'} overflow-auto z-10`}>
       <div className="max-w-4xl mx-auto p-8">
         <div className="text-center mb-8">
-          <h2 className={`text-4xl font-bold mb-4 ${darkMode ? 'text-amber-400' : 'text-slate-800'}`}>
+          <h2 className={`text-4xl font-bold mb-4 ${darkMode ? 'text-amber-300' : 'text-amber-900'}`}>
             သင့်၏ တာရို ဖတ်ရှုမှု
           </h2>
           <div className="flex justify-center gap-8 mb-8">
             <div className="text-center">
-              <p className={`text-sm mb-2 ${darkMode ? 'text-amber-200' : 'text-slate-600'}`}>အတိတ်</p>
-              <p className={`font-bold ${darkMode ? 'text-amber-100' : 'text-slate-800'}`}>{cards[0]?.name}</p>
+              <p className={`text-sm mb-2 ${darkMode ? 'text-amber-200' : 'text-amber-700'}`}>အတိတ် (Past)</p>
+              <p className={`font-bold ${darkMode ? 'text-amber-100' : 'text-amber-900'}`}>{cards[0]?.name}</p>
             </div>
             <div className="text-center">
-              <p className={`text-sm mb-2 ${darkMode ? 'text-amber-200' : 'text-slate-600'}`}>ပစ္စုပ္ပန်</p>
-              <p className={`font-bold ${darkMode ? 'text-amber-100' : 'text-slate-800'}`}>{cards[1]?.name}</p>
+              <p className={`text-sm mb-2 ${darkMode ? 'text-amber-200' : 'text-amber-700'}`}>ပစ္စုပ္ပန် (Present)</p>
+              <p className={`font-bold ${darkMode ? 'text-amber-100' : 'text-amber-900'}`}>{cards[1]?.name}</p>
             </div>
             <div className="text-center">
-              <p className={`text-sm mb-2 ${darkMode ? 'text-amber-200' : 'text-slate-600'}`}>အနာဂတ်</p>
-              <p className={`font-bold ${darkMode ? 'text-amber-100' : 'text-slate-800'}`}>{cards[2]?.name}</p>
+              <p className={`text-sm mb-2 ${darkMode ? 'text-amber-200' : 'text-amber-700'}`}>အနာဂတ် (Future)</p>
+              <p className={`font-bold ${darkMode ? 'text-amber-100' : 'text-amber-900'}`}>{cards[2]?.name}</p>
             </div>
           </div>
         </div>
 
-        <div className={`${darkMode ? 'bg-slate-800' : 'bg-white'} rounded-lg p-8 mb-6 shadow-2xl border-2 ${darkMode ? 'border-amber-600' : 'border-amber-400'}`}>
+        <div className={`${darkMode ? 'bg-slate-800' : 'bg-white'} rounded-lg p-8 mb-6 shadow-2xl border-2 ${darkMode ? 'border-amber-500' : 'border-amber-400'}`}>
           <p className={`text-lg leading-relaxed whitespace-pre-wrap ${darkMode ? 'text-amber-50' : 'text-slate-800'}`}>
             {reading}
           </p>
@@ -487,7 +497,7 @@ function ReadingPanel({
         <div className="flex gap-4 justify-center">
           <button
             onClick={onNewReading}
-            className="px-8 py-3 bg-amber-600 hover:bg-amber-500 text-slate-900 font-bold rounded-lg transition-all transform hover:scale-105"
+            className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-lg transition-all transform hover:scale-105 shadow-lg shadow-amber-500/50"
           >
             အသစ် ဖတ်ရှုရန်
           </button>
@@ -505,7 +515,7 @@ function TarotApp() {
   const [spreadCards, setSpreadCards] = useState<CardData[]>([]);
   const [reading, setReading] = useState<string>("");
   const [showReading, setShowReading] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const synthRef = useRef<Tone.Synth | null>(null);
 
   useEffect(() => {
@@ -535,7 +545,6 @@ function TarotApp() {
             setTimeout(() => {
               setSpreadCards(prev => {
                 const updatedSpreadCards = [...prev, revealingCard];
-                // After all 3 cards are revealed and added to spread, fetch the reading
                 if (selectedCards.length === 3 && updatedSpreadCards.length === 3) {
                   setTimeout(() => fetchReading(), 100);
                 }
@@ -547,13 +556,13 @@ function TarotApp() {
             
             return 1;
           }
-          return prev + 0.008;
+          return prev + 0.01;
         });
       }, 16);
       
       return () => clearInterval(interval);
     }
-  }, [revealingCard, selectedCards.length, spreadCards.length]);
+  }, [revealingCard, selectedCards.length]);
 
   const handleCardSelect = (card: CardData) => {
     if (selectedCards.length < 3) {
@@ -569,7 +578,7 @@ function TarotApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cards: [...spreadCards.map(c => c.name), selectedCards[selectedCards.length - 1].name]
+          cards: spreadCards.map(c => c.name).concat(selectedCards[selectedCards.length - 1].name)
         })
       });
       
@@ -601,7 +610,7 @@ function TarotApp() {
       <div className="fixed top-4 right-4 z-20 flex gap-4">
         <button
           onClick={() => setDarkMode(!darkMode)}
-          className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-900 font-bold rounded-lg transition-all"
+          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-lg transition-all shadow-lg shadow-amber-500/50"
         >
           {darkMode ? "☀️" : "🌙"}
         </button>
@@ -619,17 +628,26 @@ function TarotApp() {
       {!showReading && (
         <>
           <div className="fixed top-4 left-4 z-20">
-            <div className={`${darkMode ? 'bg-slate-800' : 'bg-white'} p-4 rounded-lg shadow-lg border-2 ${darkMode ? 'border-amber-600' : 'border-amber-400'}`}>
-              <p className={`${darkMode ? 'text-amber-400' : 'text-slate-800'} font-bold mb-2`}>
+            <div className={`${darkMode ? 'bg-slate-800 border-amber-500' : 'bg-white border-amber-400'} p-4 rounded-lg shadow-lg border-2`}>
+              <p className={`${darkMode ? 'text-amber-300' : 'text-amber-900'} font-bold mb-2`}>
                 ရွေးချယ်ထားသော ကတ်များ: {selectedCards.length}/3
               </p>
-              <p className={`text-sm ${darkMode ? 'text-amber-200' : 'text-slate-600'}`}>
+              <p className={`text-sm ${darkMode ? 'text-amber-100' : 'text-amber-700'}`}>
                 သင့်ကံကြမ္မာ အတွက် ကတ် သုံးချပ် ရွေးချယ်ပါ
               </p>
+              {selectedCards.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {selectedCards.map((card, idx) => (
+                    <p key={card.id} className={`text-xs ${darkMode ? 'text-amber-200' : 'text-amber-600'}`}>
+                      {POSITION_LABELS_EN[idx]}: {card.name}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          <Canvas shadows gl={{ antialias: true, alpha: false }}>
+          <Canvas shadows gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}>
             <color attach="background" args={[darkMode ? "#0f0a1a" : "#fef3c7"]} />
             <Suspense fallback={null}>
               <TarotScene
